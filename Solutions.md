@@ -11,14 +11,14 @@
 - Create EC2 instance 
 - Create Security Group for EC2
 
-**Create new user and a group**
+**Create a new user and a group**
 
 ```sh
 # Check that you have configured AWS admin user locally
 aws configure list
 cat ~/.aws/credentials
 
-# Create a new IAM user "your name" with UI and CLI access
+# Create a new IAM user using "your name" with UI and CLI access
 aws iam create-user --user-name nana
 
 # Create a group "devops"
@@ -36,14 +36,14 @@ aws iam get-group --group-name devops
 
 ```sh
 # Generate user keys for CLI access & save key.txt file in safe location
-aws iam create-access-key -user-name nana > key.txt
+aws iam create-access-key --user-name nana > key.txt
 
 # Generate user login credentials for UI & save password in safe location
 aws iam create-login-profile --user-name nana --password MyTestPassword123
 
 # Give user permission to change password
 aws iam list-policies | grep ChangePassword
-aws iam attach-user-policy --user-name devops --policy-arn "arn:aws:iam::aws:policy/IAMUserChangePassword"
+aws iam attach-user-policy --user-name nana --policy-arn "arn:aws:iam::aws:policy/IAMUserChangePassword"
 
 ```
 
@@ -108,6 +108,9 @@ aws ec2 create-vpc --cidr-block 10.0.0.0/16 --query Vpc.VpcId --output text
 # Create subnet in the VPC
 aws ec2 create-subnet --vpc-id vpc-id --cidr-block 10.0.1.0/24
 
+# Return subnet ID
+aws ec2 describe-subnets --filters "Name=vpc-id,Values=vpc-id" 
+
 ```
 
 **Make our subnet public by attaching it internet gateway**
@@ -152,12 +155,12 @@ aws ec2 authorize-security-group-ingress --group-id sg-id --protocol tcp --port 
 
 **Create EC2 instance into our subnet**
 ```sh
-# Create key pair, save it locally in pem file and set stricter permission on it for later use
+# Create key pair, save it locally in pem file and set stricter permissions on it for later use
 aws ec2 create-key-pair --key-name WebServerKeyPair --query "KeyMaterial" --output text > WebServerKeyPair.pem
-chmod 400 MyKeyPair.pem
+chmod 400 WebServerKeyPair.pem
 
-# Create 1 EC2 instance with the above key, in our subnet and using security group we created
-aws ec2 run-instances --image-id ami-a4827dc9 --count 1 --instance-type t2.micro --key-name WebServerKeyPair --security-group-ids sg-id --subnet-id subnet-id
+# Create 1 EC2 instance with the above key, in our subnet and using the security group we created. Check the UI to get an up to date image-id
+aws ec2 run-instances --image-id image-id --count 1 --instance-type t2.micro --key-name WebServerKeyPair --security-group-ids sg-id --subnet-id subnet-id --associate-public-ip-address
 
 # Validate that EC2 instance is in a running state, and get its public ip address to connect via ssh
 aws ec2 describe-instances --instance-id i-0146854b7443af453 --query "Reservations[*].Instances[*].{State:State.Name,Address:PublicIpAddress}"
@@ -174,7 +177,7 @@ aws ec2 describe-instances --instance-id i-0146854b7443af453 --query "Reservatio
 
 **steps:**
 ```sh
-# ssh into EC2 instance using th epublic IP address we got earlier
+# ssh into EC2 instance using the public IP address we got earlier
 # Note: EC2 must be in a running state & relative path to WebServerKeyPair.pem must be correct
 ssh -i "WebServerKeyPair.pem" ec2-user@public-ip-address
 
@@ -224,7 +227,7 @@ docker-compose -f docker-compose.yaml up --detach
 echo "success"
 ```
 
-Complete the Jenkinsfile from the previous exercise: 8 - Build Automation & CI/CD with Jenkins
+Add the 'deploy to EC2' step to the Jenkinsfile from the previous exercise: 8 - Build Automation & CI/CD with Jenkins
 
 **Jenkinsfile:**
 ```sh
@@ -292,7 +295,7 @@ aws ec2 authorize-security-group-ingress --group-id sg-id --protocol tcp --port 
 **Add branch based logic to Jenkinsfile**
 
 ```sh
-# when the currently building branch is master, execute all steps. If it's not master, execute only the "run tests" step
+# when the current branch is master, execute all steps. If it's not master, execute only the "run tests" step
 pipeline {
     agent any
       tools {
@@ -361,13 +364,8 @@ pipeline {
 
 **Add webhook to trigger pipeline automatically**
 
-Refer to the demo video for this
+Refer to video 08.15 - Webhooks - Trigger Pipeline Jobs automatically 
 
 </details>
 
 ******
-
-
-
-
-
